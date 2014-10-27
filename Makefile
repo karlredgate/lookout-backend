@@ -1,10 +1,14 @@
 
-test: encode decode listen
+test: encode decode listen send-event
 	./encode $$(sha256sum encode | sed -e 's/ .*//') 123456789 | ./decode
 
 CLEANS += listen
 listen: lookout.pb-c.o listen.o
 	cc -o listen $^ -lprotobuf-c
+
+CLEANS += send-event
+send-event: lookout.pb-c.o send-event.o
+	cc -o send-event $^ -lprotobuf-c
 
 CLEANS += decode
 decode: lookout.pb-c.o decode.o
