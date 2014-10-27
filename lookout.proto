@@ -1,0 +1,6 @@
+package lookout.backend_coding_questions.q1;
+
+message IpEvent {
+  required string app_sha256 = 1;
+  required int64 ip = 2;
+}
