@@ -1,10 +1,10 @@
 
-test: encode decode udp
+test: encode decode listen
 	./encode $$(sha256sum encode | sed -e 's/ .*//') 123456789 | ./decode
 
-CLEANS += udp
-udp: udp.o
-	cc -o udp $^
+CLEANS += listen
+listen: lookout.pb-c.o listen.o
+	cc -o listen $^ -lprotobuf-c
 
 CLEANS += decode
 decode: lookout.pb-c.o decode.o
