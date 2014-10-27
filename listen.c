@@ -14,6 +14,8 @@
 #include <sys/ioctl.h>
 #include <net/if.h>
 
+#include "lookout.pb-c.h"
+
 static int debug = 0;
 
 struct dirstats {
@@ -54,6 +56,27 @@ forward( int in, struct dirstats *s ) {
     unsigned char buffer[2048];
 
     ssize_t octets = read( in, buffer, sizeof(buffer) );
+
+    Lookout__BackendCodingQuestions__Q1__IpEvent *message;
+
+    message = lookout__backend_coding_questions__q1__ip_event__unpack( NULL, octets, buffer );
+
+    if ( message == NULL ) {
+        fprintf( stderr, "cannot unpack message\n" );
+        /* count errors? */
+        return octets;
+    }
+
+    // fprintf( stderr, "aws dynamodb put-item --table-name IpEvent --item  <%s> <0x%0llx>\n", message->app_sha256, message->ip );
+
+/*
+package lookout.backend_coding_questions.q1;
+
+message IpEvent {
+  required string app_sha256 = 1;
+  required int64 ip = 2;
+}
+ */
 
     return octets;
 }
