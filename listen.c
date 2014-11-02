@@ -9,16 +9,13 @@
 #include <netdb.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdarg.h>
 #include <string.h>
 
 #include <sys/ioctl.h>
 #include <syslog.h>
 
 #include "lookout.pb-c.h"
-
-#define CACHEDIR "/var/run/lookout"
-
-static int debug = 0;
 
 struct message_stats {
     int epoch;
@@ -27,16 +24,25 @@ struct message_stats {
     int errors;
 };
 
+static int debug = 0;
+
+void dbgprintf( const char *fmt, ... ) {
+    va_list ap;
+    va_start( ap, fmt );
+    if ( debug > 0 )  vprintf( fmt, ap );
+    va_end( ap );
+}
+
 /*
  * change to syslog how many seen upto idle
  */
 static void
 idle( struct message_stats *s ) {
-    if ( debug ) printf( "idle\n" );
+    dbgprintf( "idle\n" );
     if ( s->epoch == s->written ) return;
     s->written = s->epoch;
     syslog( LOG_NOTICE, "prcoessed %d requests", s->messages );
-    if ( debug ) printf( "stats updated\n" );
+    dbgprintf( "stats updated\n" );
 }
 
 /*
@@ -198,6 +204,7 @@ main( int argc, char **argv ) {
         exit( -1 );
     }
 
+    if ( isatty(0) )  debug = 1;
     openlog( "lookout", LOG_PID, LOG_DAEMON );
 
     // check for cache dir - and die if not present - since this user should not be able to create it
