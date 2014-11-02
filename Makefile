@@ -1,5 +1,6 @@
 
 PWD := $(shell pwd)
+ARCH := $(shell arch)
 PACKAGE = lookout-backend
 
 default: rpm
@@ -13,6 +14,10 @@ build: lookout-backend
 
 test: encode decode lookout-backend send-event
 	./encode $$(sha256sum encode | sed -e 's/ .*//') 123456789 | ./decode
+
+# this is just for testing installs during development
+update: rpm
+	sudo yum --enablerepo=epel update -y rpm/RPMS/$(ARCH)/lookout-backend-*.$(ARCH).rpm
 
 CLEANS += lookout-backend
 lookout-backend: lookout.pb-c.o lookout-backend.o
