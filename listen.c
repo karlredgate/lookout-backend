@@ -12,47 +12,58 @@
 #include <string.h>
 
 #include <sys/ioctl.h>
-#include <net/if.h>
+#include <syslog.h>
 
 #include "lookout.pb-c.h"
 
+#define CACHEDIR "/var/run/lookout"
+
 static int debug = 0;
 
-struct dirstats {
-    long int pkts;
-    long int octets;
-    long int dropped;
-};
-
-struct tunnel_stats {
+struct message_stats {
     int epoch;
     int written;
-    struct dirstats rx;
-    struct dirstats tx;
+    int messages;
+    int errors;
 };
 
 /*
+ * change to syslog how many seen upto idle
  */
 static void
-idle( struct tunnel_stats *s ) {
+idle( struct message_stats *s ) {
     if ( debug ) printf( "idle\n" );
     if ( s->epoch == s->written ) return;
-    FILE *f = fopen( ".link-stats", "w" );
-    if ( f == NULL ) {
-        return;
-    }
-    fprintf( f, "%ld %ld %ld %ld\n", s->tx.pkts, s->tx.octets,
-                                     s->rx.pkts, s->rx.octets );
-    fclose( f );
-    rename( ".link-stats", "link-stats" );
     s->written = s->epoch;
-    printf( "stats updated\n" );
+    syslog( LOG_NOTICE, "prcoessed %d requests", s->messages );
+    if ( debug ) printf( "stats updated\n" );
 }
 
 /*
  */
 static ssize_t
-forward( int in, struct dirstats *s ) {
+intern( char *appsha, int64_t ip ) {
+    // how to translate int64 to IP
+    //
+
+    // how to determine if the IP is bad
+
+    // create path
+    // path -- ./apps/<sha>/good/<ip-address>
+    // path -- ./apps/<sha>/bad/<ip-address>
+    char path[1024]; // what is the max string length of a protobuf
+    // perhaps who cares - if it is longer than a sha256 then it is an error
+
+    struct stat s;
+    if ( stat(path, &s) == 0 ) {
+        // cache hit - do nothing
+    }
+}
+
+/*
+ */
+static ssize_t
+process( int in, struct message_stats *s ) {
     unsigned char buffer[2048];
 
     ssize_t octets = read( in, buffer, sizeof(buffer) );
@@ -63,11 +74,12 @@ forward( int in, struct dirstats *s ) {
 
     if ( message == NULL ) {
         fprintf( stderr, "cannot unpack message\n" );
-        /* count errors? */
+        s->errors++;
         return octets;
     }
 
     // fprintf( stderr, "aws dynamodb put-item --table-name IpEvent --item  <%s> <0x%0llx>\n", message->app_sha256, message->ip );
+    intern( message->app_sha256, message->ip );
 
 /*
 package lookout.backend_coding_questions.q1;
@@ -85,8 +97,8 @@ message IpEvent {
  */
 static void
 loop( int sock ) {
-    struct tunnel_stats s;
-    memset( &s, 0, sizeof(s) );
+    struct message_stats stats;
+    memset( &stats, 0, sizeof(stats) );
 
     struct timeval timeout;
     fd_set fds;
@@ -105,13 +117,13 @@ loop( int sock ) {
         }
 
         if ( result == 0 ) {
-            idle( &s );
+            idle( &stats );
             continue;
         }
 
         if ( FD_ISSET(sock, &fds) ) {
-            ssize_t octets = forward( sock, &(s.rx) );
-            s.epoch += 1;
+            ssize_t octets = process( sock, &stats );
+            stats.epoch += 1;
             if ( debug ) printf( "sock->tap %zd octets\n", octets );
         }
     }
@@ -185,6 +197,16 @@ main( int argc, char **argv ) {
         fprintf( stderr, "usage: %s local-address local-port\n", argv[0] );
         exit( -1 );
     }
+
+    openlog( "lookout", LOG_PID, LOG_DAEMON );
+
+    // check for cache dir - and die if not present - since this user should not be able to create it
+    if ( chdir("/var/run/lookout") != 0 ) {
+        syslog( LOG_NOTICE, "run dir missing - cannot run" );
+        exit( -1 );
+    }
+
+    mkdir( "apps", 0755 );
 
     int sock = socket_open( argv[1], argv[2] );
 
