@@ -54,12 +54,12 @@ function handle_uncaught_exception( exception ) {
         logError( frame );
     }
 
-    LogError( 'uncaught exception' );
-    LogError( exception );
-    LogError( ' ------ ' );
+    logError( 'uncaught exception' );
+    logError( exception );
+    logError( ' ------ ' );
     var a = exception.stack.split(/\n */);
     var exc_name = a.shift();
-    LogError( "exception: " + exc_name );
+    logError( "exception: " + exc_name );
     a.map( print_stack_frame );
     exit( 1 );
 }
@@ -89,26 +89,38 @@ function IpEventAPI( port ) {
 IpEventAPI.prototype.methods = {};
 
 IpEventAPI.prototype.methods.GET = function ( request, response ) {
-    function send_response( err, data ) {
-        if ( err != null ) {
-            response.writeHead( 404, {'Content-Type': 'text/plain'} );
-            response.end( "File does not exist\n" );
-            return;
-        }
-
-        response.writeHead( 200, {'Content-Type': 'application/json'} );
-        response.end( data );
-    }
-
     var url = URL.parse( request.url );
+
     if ( RegExp('^/events/[0-9a-fA-F]+$').test(url.pathname) === false ) {
         response.writeHead( 404, {'Content-Type': 'text/plain'} );
         response.end( "does not exist\n" );
         return;
     }
 
-    var target = BASE + url.pathname;
-    FS.readFile( target, send_response );
+    var sha = url.pathname.split("/").pop();
+
+    var output = "";
+    function gather_output( data ) { output += data; }
+
+    var error = "";
+    function gather_error( data ) { error += data; }
+
+    function finish( code, signal ) {
+        if ( code === 0 ) {
+            response.writeHead( 200, {'Content-Type': 'application/json'} );
+            response.end( output );
+            return;
+        }
+
+        response.writeHead( 500, {'Content-Type': 'test/plain'} );
+        response.end( error );
+    }
+
+    var pid = spawn( 'app-report', [sha] );
+
+    pid.on( 'close', finish );
+    pid.stdout.on( 'data', gather_output );
+    pid.stderr.on( 'data', gather_output );
 }
 
 IpEventAPI.prototype.methods.DELETE = function ( request, response ) {
@@ -203,8 +215,7 @@ IpEventAPI.prototype.start = function () {
 
 logNotice( "starting" );
 
-var port = 80;
-if ( process.getuid() != 0 )  port = 4003;
+var port = 4003;
 
 debug( 'listening on port ' + port );
 var service = new IpEventAPI( port );
