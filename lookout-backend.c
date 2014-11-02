@@ -47,23 +47,38 @@ idle( struct message_stats *s ) {
 
 /*
  */
-static ssize_t
-intern( char *appsha, int64_t ip ) {
-    // how to translate int64 to IP
-    //
+static void
+intern( char *sha, int64_t ip ) {
+    static const int PATHLEN = 1024;
+    char path[PATHLEN];
 
-    // how to determine if the IP is bad
+    int bytes = snprintf( path, sizeof(path), "events/%s", sha );
+    if ( bytes > PATHLEN ) return; // Bad path
 
-    // create path
-    // path -- ./apps/<sha>/good/<ip-address>
-    // path -- ./apps/<sha>/bad/<ip-address>
-    char path[1024]; // what is the max string length of a protobuf
-    // perhaps who cares - if it is longer than a sha256 then it is an error
+    mkdir( path, 0755 );
+
+    uint8_t octet1 = (ip>>24) & 0xFF;
+    uint8_t octet2 = (ip>>16) & 0xFF;
+    uint8_t octet3 = (ip>> 8) & 0xFF;
+    uint8_t octet4 =  ip      & 0xFF;
+
+    bytes = snprintf( path, sizeof(path),
+                      "events/%s/%02x%02x%02x%02x",
+                      sha, octet1, octet2, octet3, octet4 );
+    if ( bytes > PATHLEN ) return; // Bad path
 
     struct stat s;
-    if ( stat(path, &s) == 0 ) {
-        // cache hit - do nothing
+    if ( stat(path, &s) == 0 ) { // cache hit - do nothing
+        return;
     }
+
+    int fd = open(path, O_CREAT|O_WRONLY|O_TRUNC, 0666 );
+    if ( fd < 0 ) {
+        syslog( LOG_ERR, "could not create <%s>", path );
+        return;
+    }
+
+    close( fd );
 }
 
 /*
@@ -84,17 +99,7 @@ process( int in, struct message_stats *s ) {
         return octets;
     }
 
-    // fprintf( stderr, "aws dynamodb put-item --table-name IpEvent --item  <%s> <0x%0llx>\n", message->app_sha256, message->ip );
     intern( message->app_sha256, message->ip );
-
-/*
-package lookout.backend_coding_questions.q1;
-
-message IpEvent {
-  required string app_sha256 = 1;
-  required int64 ip = 2;
-}
- */
 
     return octets;
 }
@@ -213,10 +218,8 @@ main( int argc, char **argv ) {
         exit( -1 );
     }
 
-    mkdir( "apps", 0755 );
-
+    mkdir( "events", 0755 );
     int sock = socket_open( argv[1], argv[2] );
-
     loop( sock );
 
     return 0;
