@@ -1,0 +1,39 @@
+#!/bin/bash
+
+SHA=$1
+[ -z "$SHA" ] && {
+    echo "usage: $0 <SHA>"
+    exit 1
+}
+
+function translate() {
+    local hex=$1
+
+    for octet in $( echo $hex | sed -e 's/\(..\)\(..\)\(..\)\(..\)/\1 \2 \3 \4/')
+    do
+        echo $(( 0x$octet ))
+    done | fmt | sed -e 's/ /./g' -e 's/$/"/' -e 's/^/"/'
+}
+
+function map() {
+    local command=$1
+
+    while read arg
+    do
+        $command $arg
+    done
+}
+
+cd /var/run/lookout/events/$SHA
+good_prefix=$( ls | sed -e 's/.$//' | sort | uniq -d )
+good_ips=$( ls | grep $good_prefix | map translate | tr '\n' ',' | sed -e 's/,$//' )
+bad_ips=$( ls | grep -v $good_prefix | map translate | tr '\n' ',' | sed -e 's/,$//' )
+
+cat <<END
+{
+    "good_ips": [$good_ips],
+    "bad_ips": [$bad_ips]
+}
+END
+
+# vim:autoindent expandtab sw=4

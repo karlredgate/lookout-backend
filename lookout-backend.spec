@@ -32,6 +32,7 @@ related command line tools.
 %{__install} --directory --mode=755 $RPM_BUILD_ROOT/usr/sbin
 %{__install} --mode=755 %{srcdir}/lookout-backend $RPM_BUILD_ROOT/usr/sbin
 %{__install} --mode=755 %{srcdir}/lookout-rest $RPM_BUILD_ROOT/usr/sbin
+%{__install} --mode=755 %{srcdir}/app-report $RPM_BUILD_ROOT/usr/sbin
 
 %{__install} --directory --mode=755 $RPM_BUILD_ROOT/usr/libexec/lookout/setup
 %{__install} --mode=755 %{srcdir}/libexec/lookout/setup/* $RPM_BUILD_ROOT/usr/libexec/lookout/setup
@@ -45,6 +46,7 @@ rm -rf $RPM_BUILD_ROOT
 %defattr(-,root,root,0755)
 /usr/sbin/lookout-backend
 /usr/sbin/lookout-rest
+/usr/sbin/app-report
 /etc/init/lookout
 /usr/libexec/lookout/
 %attr(0755,ec2-user,ec2-user) /var/run/lookout/
