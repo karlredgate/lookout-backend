@@ -13,7 +13,6 @@ Group: System Environment/Daemons
 License: Proprietary
 Vendor: Karl Redgate
 Packager: Karl Redgate <Karl.Redgate@gmail.com>
-BuildArch: noarch
 
 Requires: nodejs
 Requires: npm
@@ -31,7 +30,7 @@ related command line tools.
 %{__install} --mode=755 %{srcdir}/init/lookout/*.conf $RPM_BUILD_ROOT/etc/init/lookout
 
 %{__install} --directory --mode=755 $RPM_BUILD_ROOT/usr/sbin
-%{__install} --mode=755 %{srcdir}/sbin/* $RPM_BUILD_ROOT/usr/sbin
+%{__install} --mode=755 %{srcdir}/lookout-backend $RPM_BUILD_ROOT/usr/sbin
 
 %{__install} --directory --mode=755 $RPM_BUILD_ROOT/var/run/lookout
 
@@ -40,7 +39,6 @@ rm -rf $RPM_BUILD_ROOT
 
 %files
 %defattr(-,root,root,0755)
-%attr(0555,root,root) /usr/sbin
 /usr/sbin/lookout-backend
 /etc/init/lookout
 %attr(0755,ec2-user,ec2-user) /var/run/lookout/
