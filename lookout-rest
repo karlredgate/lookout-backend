@@ -1,0 +1,213 @@
+#!/usr/bin/node
+
+/* @file rest
+ * @brief Web service API for IpEvent watcher.
+ */
+
+var Util = require('util');
+var HTTP = require('http');
+var URL  = require('url');
+var Path = require('path');
+var FS   = require('fs');
+var Syslog = require('node-syslog');
+var spawn  = require('child_process').spawn;
+
+var BASE = '/var/run/lookout';
+var EVENTS = BASE + '/events';
+
+/*
+ * The following are utility and setup functions.
+ * INT signals cause an exit currently.
+ */
+
+function debug( message ) {
+    if ( process.stdout.isTTY == false ) return;
+    console.log( message );
+}
+
+/** Syslog logging
+ */
+
+Syslog.init( "lookout-rest", Syslog.LOG_PID | Syslog.LOG_ODELAY, Syslog.LOG_DAEMON );
+
+function logNotice( message ) {
+    Syslog.log( Syslog.LOG_NOTICE, message );
+}
+
+function logError( message ) {
+    Syslog.log( Syslog.LOG_ERROR, message );
+}
+
+function sigint_handler() {
+    logNotice( 'Recv SIGINT - shutting down' );
+    process.exit( 1 );
+}
+process.on( 'SIGINT', sigint_handler );
+
+/*
+ * Uncaught exceptions are caught here only to report the stack trace.
+ * We should exit here, since we should only get here due to a bug.
+ * Let Upstart restart the service.
+ */
+function handle_uncaught_exception( exception ) {
+    function print_stack_frame( frame ) {
+        logError( frame );
+    }
+
+    LogError( 'uncaught exception' );
+    LogError( exception );
+    LogError( ' ------ ' );
+    var a = exception.stack.split(/\n */);
+    var exc_name = a.shift();
+    LogError( "exception: " + exc_name );
+    a.map( print_stack_frame );
+    exit( 1 );
+}
+process.on( 'uncaughtException', handle_uncaught_exception );
+
+/** IpEventAPI base object.
+ * 
+ * The service object wraps the HTTP server object and provides
+ * all of the handlers to provide the IpEvent API.
+ */
+
+function IpEventAPI( port ) {
+    this.port = port;
+    this.server = HTTP.createServer();
+
+    this.server.on( 'request',    this.handler.request );
+    this.server.on( 'connection', this.handler.connection );
+    this.server.on( 'close',      this.handler.close );
+}
+
+/** Method handlers.
+ *
+ * Each method handler is a function.  When a request is received
+ * the handler is called based on the HTTP method in the request.
+ */
+
+IpEventAPI.prototype.methods = {};
+
+IpEventAPI.prototype.methods.GET = function ( request, response ) {
+    function send_response( err, data ) {
+        if ( err != null ) {
+            response.writeHead( 404, {'Content-Type': 'text/plain'} );
+            response.end( "File does not exist\n" );
+            return;
+        }
+
+        response.writeHead( 200, {'Content-Type': 'application/json'} );
+        response.end( data );
+    }
+
+    var url = URL.parse( request.url );
+    if ( RegExp('^/events/[0-9a-fA-F]+$').test(url.pathname) === false ) {
+        response.writeHead( 404, {'Content-Type': 'text/plain'} );
+        response.end( "does not exist\n" );
+        return;
+    }
+
+    var target = BASE + url.pathname;
+    FS.readFile( target, send_response );
+}
+
+IpEventAPI.prototype.methods.DELETE = function ( request, response ) {
+    var TMPPATH = BASE + '/delete';
+
+    function eat_output( data ) { return; }
+
+    function finish( code, signal ) {
+        if ( code === 0 ) {
+            response.writeHead( 200, {'Content-Type': 'text/plain'} );
+            response.end( "deleted\n" );
+            return;
+        }
+
+        response.writeHead( 500, {'Content-Type': 'test/plain'} );
+        response.end( 'failed to clean up' );
+    }
+
+    function remove( err ) {
+        if ( err ) {
+            response.writeHead( 500, {'Content-Type': 'text/plain'} );
+            response.end( 'failed to create new' );
+            return;
+        }
+
+        var pid = spawn( 'rm', ['-rf', TMPPATH] );
+
+        pid.on( 'close', finish );
+        pid.stdout.on( 'data', eat_output );
+        pid.stderr.on( 'data', eat_output );
+    }
+
+    function create_new( err ) {
+        if ( err ) {
+            response.writeHead( 500, {'Content-Type': 'text/plain'} );
+            response.end( 'failed to delete' );
+            return;
+        }
+
+        FS.mkdir( EVENTS, 0755, remove );
+    }
+
+    var url = URL.parse( request.url );
+    if ( RegExp('^/events$').test(url.pathname) === false ) {
+        response.writeHead( 403, {'Content-Type': 'text/plain'} );
+        response.end( 'invalid URI' );
+        return;
+    }
+
+    FS.rename( EVENTS, BASE + '/delete', create_new );
+}
+
+/** HTTP Service Event handlers.
+ */
+
+IpEventAPI.prototype.handler = {};
+
+IpEventAPI.prototype.handler.connection = function (stream) {
+    logNotice( 'connection established' );
+}
+
+IpEventAPI.prototype.handler.close = function () {
+    logNotice( 'connection closed' );
+}
+
+/** HTTP Request handler
+ *
+ * The request handler splits the URI and looks for the
+ * appropriate data.
+ */
+IpEventAPI.prototype.handler.request = function (request, response) {
+    response.setHeader( 'Server', 'Lookout IpEvent API server v1' );
+
+    var method = this.service.methods[ request.method ];
+
+    if ( typeof method == 'undefined' ) { // Not implemented
+        response.writeHead( 501, {'Content-Type': 'text/plain'} );
+        response.end( '<error>unimplemented</error>' );
+    }
+
+    method.call( this, request, response );
+}
+
+/** Service startup helper
+ *
+ * We listen on IPv6 all hosts ('::') since it allows IPv4 and IPv6 access.
+ */
+IpEventAPI.prototype.start = function () {
+    this.server.service = this;
+    this.server.listen( this.port, '::', 5 ); // backlog of 5 connections
+}
+
+logNotice( "starting" );
+
+var port = 80;
+if ( process.getuid() != 0 )  port = 4003;
+
+debug( 'listening on port ' + port );
+var service = new IpEventAPI( port );
+service.start();
+
+// vim:autoindent expandtab sw=4 syntax=javascript
