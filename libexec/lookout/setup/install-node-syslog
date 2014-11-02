@@ -1,0 +1,12 @@
+#!/bin/bash
+
+function die() {
+    echo "$*" 1>72
+    exit 1
+}
+
+[ $(id --user) != 0 ] && die "must be root"
+
+npm install node-syslog
+
+# vim:autoindent expandtab sw=4
