@@ -95,38 +95,6 @@ idle() {
 /*
  */
 static void
-update_count( char *sha ) {
-    static const int PATHLEN = 1024;
-    int bytes;
-
-    char path[PATHLEN];
-    bytes = snprintf( path, sizeof(path), "events/%s/.count", sha );
-    if ( bytes > PATHLEN ) return; // Bad path
-
-    int count = 0;
-    FILE *f = fopen( path, "r" );
-
-    if ( f != NULL ) {
-        fscanf( f, "%d", &count );
-        fclose( f );
-    }
-
-    char tmppath[PATHLEN];
-    bytes = snprintf( tmppath, sizeof(tmppath), "events/%s/.new", sha );
-    if ( bytes > PATHLEN ) return; // Bad path
-
-    f = fopen( tmppath, "w" );
-    /* if the file cannot be opened, treat it as a dropped message */
-    if ( f == NULL ) return;
-    fprintf( f, "%d", count+1 );
-    fclose( f );
-
-    rename( tmppath, path );
-}
-
-/*
- */
-static void
 intern( char *sha, int64_t ip ) {
     static const int PATHLEN = 1024;
     char path[PATHLEN];
@@ -268,6 +236,24 @@ parse( char *address, char *service ) {
 /*
  */
 static int
+tune_socket( int sock ) {
+    int oldbuf = 0;
+    socklen_t optlen = sizeof(oldbuf);
+    getsockopt( sock, SOL_SOCKET, SO_RCVBUF, &oldbuf, &optlen );
+
+    int newbuf = 10 * 1024 * 1024;
+    int error = setsockopt( sock, SOL_SOCKET, SO_RCVBUF, &newbuf, sizeof(newbuf) );
+    if ( error < 0 ) {
+        syslog( LOG_ERR, "could not increase socket buffer size" );
+        return;
+    }
+
+    syslog( LOG_NOTICE, "increased socket buffer size from %d to %d", oldbuf, newbuf );
+}
+
+/*
+ */
+static int
 socket_open( char *laddr, char *lport ) {
     int error;
 
@@ -279,17 +265,7 @@ socket_open( char *laddr, char *lport ) {
         exit( -1 );
     }
 
-    int oldbuf = 0;
-    socklen_t optlen = sizeof(oldbuf);
-    getsockopt( sock, SOL_SOCKET, SO_RCVBUF, &oldbuf, &optlen );
-
-    int newbuf = 10 * 1024 * 1024;
-    error = setsockopt( sock, SOL_SOCKET, SO_RCVBUF, &newbuf, sizeof(newbuf) );
-    if ( error < 0 ) {
-        syslog( LOG_ERR, "could not increase socket buffer size" );
-        return;
-    }
-    syslog( LOG_NOTICE, "increased socket buffer size from %d to %d", oldbuf, newbuf );
+    tune_socket( sock );
 
     /* Bind to local port */
     error = bind( sock, local->ai_addr, local->ai_addrlen );
