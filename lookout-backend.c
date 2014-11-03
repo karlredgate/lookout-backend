@@ -206,7 +206,6 @@ parse( char *address, char *service ) {
  */
 static int
 socket_open( char *laddr, char *lport ) {
-
     int error;
 
     struct addrinfo *local  = parse( laddr, lport );
@@ -216,6 +215,18 @@ socket_open( char *laddr, char *lport ) {
         perror( "socket" );
         exit( -1 );
     }
+
+    int oldbuf = 0;
+    socklen_t optlen = sizeof(oldbuf);
+    getsockopt( sock, SOL_SOCKET, SO_RCVBUF, &oldbuf, &optlen );
+
+    int newbuf = 10 * 1024 * 1024;
+    error = setsockopt( sock, SOL_SOCKET, SO_RCVBUF, &newbuf, sizeof(newbuf) );
+    if ( error < 0 ) {
+        syslog( LOG_ERR, "could not increase socket buffer size" );
+        return;
+    }
+    syslog( LOG_NOTICE, "increased socket buffer size from %d to %d", oldbuf, newbuf );
 
     /* Bind to local port */
     error = bind( sock, local->ai_addr, local->ai_addrlen );
@@ -239,7 +250,10 @@ main( int argc, char **argv ) {
     if ( isatty(0) )  debug = 1;
     openlog( "lookout", LOG_PID, LOG_DAEMON );
 
-    // check for cache dir - and die if not present - since this user should not be able to create it
+    /*
+     * check for cache dir - and die if not present - since this
+     * user should not be able to create it
+     */
     if ( chdir("/var/run/lookout") != 0 ) {
         syslog( LOG_NOTICE, "run dir missing - cannot run" );
         exit( -1 );
