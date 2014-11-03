@@ -15,16 +15,20 @@
 #include <sys/ioctl.h>
 #include <syslog.h>
 
+#include <search.h>
+#include <glob.h>
+#include <libgen.h>
+
 #include "lookout.pb-c.h"
 
 struct message_stats {
     int epoch;
     int written;
     int messages;
-    int errors;
 };
 
 static int debug = 0;
+static int errors = 0;
 
 void dbgprintf( const char *fmt, ... ) {
     va_list ap;
@@ -34,15 +38,58 @@ void dbgprintf( const char *fmt, ... ) {
 }
 
 /*
- * change to syslog how many seen upto idle
  */
 static void
-idle( struct message_stats *s ) {
+write_count( char *sha, long count ) {
+    static const int PATHLEN = 1024;
+    int bytes;
+
+    char path[PATHLEN];
+    bytes = snprintf( path, sizeof(path), "events/%s/.count", sha );
+    if ( bytes > PATHLEN ) return; // Bad path
+
+    char tmppath[PATHLEN];
+    bytes = snprintf( tmppath, sizeof(tmppath), "events/%s/.new", sha );
+    if ( bytes > PATHLEN ) return; // Bad path
+
+    FILE *f = fopen( tmppath, "w" );
+    /* if the file cannot be opened, treat it as a dropped message */
+    if ( f == NULL ) return;
+    fprintf( f, "%d", count );
+    fclose( f );
+
+    rename( tmppath, path );
+}
+
+/*
+ */
+static void
+idle() {
     dbgprintf( "idle\n" );
-    if ( s->epoch == s->written ) return;
-    s->written = s->epoch;
-    syslog( LOG_NOTICE, "prcoessed %d requests", s->messages );
-    dbgprintf( "stats updated\n" );
+
+    glob_t g;
+    int error = glob( "events/*", GLOB_NOSORT, NULL, &g );
+    if ( error != 0 ) {
+        syslog( LOG_ERR, "failed to glob the events dir" );
+        return;
+    }
+
+    int i;
+    for ( i = 0 ; i < g.gl_pathc ; ++i ) {
+        ENTRY entry;
+        entry.key = basename( g.gl_pathv[i] );
+        ENTRY *e = hsearch( entry, FIND );
+        if ( e == NULL ) continue;
+
+        struct message_stats *stats = (struct message_stats *)( e->data );
+        if ( stats == NULL ) continue;
+
+        if ( stats->messages == stats->written ) continue;
+        write_count( e->key, stats->messages );
+        stats->written = stats->messages;
+    }
+
+    globfree( &g );
 }
 
 /*
@@ -89,7 +136,6 @@ intern( char *sha, int64_t ip ) {
 
     /* ignore errors - if directory already exists, it is fine */
     mkdir( path, 0755 );
-    update_count( sha );
 
     uint8_t octet1 = (ip>>24) & 0xFF;
     uint8_t octet2 = (ip>>16) & 0xFF;
@@ -118,7 +164,7 @@ intern( char *sha, int64_t ip ) {
 /*
  */
 static ssize_t
-process( int in, struct message_stats *s ) {
+process( int in ) {
     unsigned char buffer[2048];
 
     ssize_t octets = read( in, buffer, sizeof(buffer) );
@@ -129,11 +175,25 @@ process( int in, struct message_stats *s ) {
 
     if ( message == NULL ) {
         fprintf( stderr, "cannot unpack message\n" );
-        s->errors++;
+        errors++;
         return octets;
     }
 
     intern( message->app_sha256, message->ip );
+
+    ENTRY entry;
+    entry.key = message->app_sha256;
+    entry.data = NULL;
+
+    ENTRY *e = hsearch( entry, ENTER );
+
+    if ( e != NULL ) {
+        if ( e->data == NULL ) {
+            e->data = calloc( 1, sizeof(struct message_stats) );
+        }
+        struct message_stats *stats = (struct message_stats *)( e->data );
+        stats->messages += 1;
+    }
 
     return octets;
 }
@@ -142,14 +202,11 @@ process( int in, struct message_stats *s ) {
  */
 static void
 loop( int sock ) {
-    struct message_stats stats;
-    memset( &stats, 0, sizeof(stats) );
-
     struct timeval timeout;
     fd_set fds;
 
     for (;;) {
-        timeout.tv_sec = 5;
+        timeout.tv_sec = 1;
         timeout.tv_usec = 0;
 
         FD_ZERO( &fds );
@@ -162,13 +219,12 @@ loop( int sock ) {
         }
 
         if ( result == 0 ) {
-            idle( &stats );
+            idle();
             continue;
         }
 
         if ( FD_ISSET(sock, &fds) ) {
-            ssize_t octets = process( sock, &stats );
-            stats.epoch += 1;
+            ssize_t octets = process( sock );
             if ( debug ) printf( "sock->tap %zd octets\n", octets );
         }
     }
@@ -256,6 +312,7 @@ main( int argc, char **argv ) {
 
     if ( isatty(0) )  debug = 1;
     openlog( "lookout", LOG_PID, LOG_DAEMON );
+    hcreate( 64 );
 
     /*
      * check for cache dir - and die if not present - since this
