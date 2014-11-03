@@ -50,9 +50,10 @@ idle( struct message_stats *s ) {
 static void
 update_count( char *sha ) {
     static const int PATHLEN = 1024;
-    char path[PATHLEN];
+    int bytes;
 
-    int bytes = snprintf( path, sizeof(path), "events/%s/.count", sha );
+    char path[PATHLEN];
+    bytes = snprintf( path, sizeof(path), "events/%s/.count", sha );
     if ( bytes > PATHLEN ) return; // Bad path
 
     int count = 0;
@@ -63,11 +64,17 @@ update_count( char *sha ) {
         fclose( f );
     }
 
-    f = fopen( path, "w" );
+    char tmppath[PATHLEN];
+    bytes = snprintf( tmppath, sizeof(tmppath), "events/%s/.new", sha );
+    if ( bytes > PATHLEN ) return; // Bad path
+
+    f = fopen( tmppath, "w" );
     /* if the file cannot be opened, treat it as a dropped message */
     if ( f == NULL ) return;
     fprintf( f, "%d", count+1 );
     fclose( f );
+
+    rename( tmppath, path );
 }
 
 /*
