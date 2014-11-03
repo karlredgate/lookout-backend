@@ -116,11 +116,15 @@ IpEventAPI.prototype.methods.GET = function ( request, response ) {
         response.end( error );
     }
 
-    var pid = spawn( 'app-report', [sha] );
+    function quiesce() {
+        var pid = spawn( 'app-report', [sha] );
 
-    pid.on( 'close', finish );
-    pid.stdout.on( 'data', gather_output );
-    pid.stderr.on( 'data', gather_error );
+        pid.on( 'close', finish );
+        pid.stdout.on( 'data', gather_output );
+        pid.stderr.on( 'data', gather_error );
+    }
+
+    setTimeout( quiesce, 2000 );
 }
 
 IpEventAPI.prototype.methods.DELETE = function ( request, response ) {
