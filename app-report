@@ -24,13 +24,21 @@ function map() {
     done
 }
 
+[ -d /var/run/lookout/events/$SHA ] || {
+    echo "unknown app hash"
+    exit 1
+}
+
 cd /var/run/lookout/events/$SHA
+let count=0
+[ -f .count ] && count=$(< .count)
 good_prefix=$( ls | sed -e 's/.$//' | sort | uniq -d )
 good_ips=$( ls | grep $good_prefix | map translate | tr '\n' ',' | sed -e 's/,$//' )
 bad_ips=$( ls | grep -v $good_prefix | map translate | tr '\n' ',' | sed -e 's/,$//' )
 
 cat <<END
 {
+    "count": $count,
     "good_ips": [$good_ips],
     "bad_ips": [$bad_ips]
 }

@@ -48,6 +48,31 @@ idle( struct message_stats *s ) {
 /*
  */
 static void
+update_count( char *sha ) {
+    static const int PATHLEN = 1024;
+    char path[PATHLEN];
+
+    int bytes = snprintf( path, sizeof(path), "events/%s/.count", sha );
+    if ( bytes > PATHLEN ) return; // Bad path
+
+    int count = 0;
+    FILE *f = fopen( path, "r" );
+
+    if ( f != NULL ) {
+        fscanf( f, "%d", &count );
+        fclose( f );
+    }
+
+    f = fopen( path, "w" );
+    /* if the file cannot be opened, treat it as a dropped message */
+    if ( f == NULL ) return;
+    fprintf( f, "%d", count+1 );
+    fclose( f );
+}
+
+/*
+ */
+static void
 intern( char *sha, int64_t ip ) {
     static const int PATHLEN = 1024;
     char path[PATHLEN];
@@ -55,7 +80,9 @@ intern( char *sha, int64_t ip ) {
     int bytes = snprintf( path, sizeof(path), "events/%s", sha );
     if ( bytes > PATHLEN ) return; // Bad path
 
+    /* ignore errors - if directory already exists, it is fine */
     mkdir( path, 0755 );
+    update_count( sha );
 
     uint8_t octet1 = (ip>>24) & 0xFF;
     uint8_t octet2 = (ip>>16) & 0xFF;

@@ -120,7 +120,7 @@ IpEventAPI.prototype.methods.GET = function ( request, response ) {
 
     pid.on( 'close', finish );
     pid.stdout.on( 'data', gather_output );
-    pid.stderr.on( 'data', gather_output );
+    pid.stderr.on( 'data', gather_error );
 }
 
 IpEventAPI.prototype.methods.DELETE = function ( request, response ) {
