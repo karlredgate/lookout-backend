@@ -10,14 +10,18 @@ rpm: build
 	mkdir -p rpm/BUILD rpm/RPMS rpm/BUILDROOT
 	rpmbuild --quiet -bb --define="_topdir $(PWD)/rpm" $(PACKAGE).spec
 
-build: lookout-backend
+build: lookout-backend test-client
 
-test: encode decode lookout-backend send-event
+test: encode decode lookout-backend send-event test-client
 	./encode $$(sha256sum encode | sed -e 's/ .*//') 123456789 | ./decode
 
 # this is just for testing installs during development
 update: rpm
 	sudo yum --enablerepo=epel update -y rpm/RPMS/$(ARCH)/lookout-backend-*.$(ARCH).rpm
+
+CLEANS += test-client
+test-client: lookout.pb-c.o test-client.o
+	cc -o test-client $^ -lprotobuf-c
 
 CLEANS += lookout-backend
 lookout-backend: lookout.pb-c.o lookout-backend.o
