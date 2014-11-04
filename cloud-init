@@ -8,6 +8,6 @@
 BUILDREPO=http://github.com/karlredgate/lookout-backend/releases/download
 
 yum --enablerepo=epel --enablerepo=epel-testing \
-    install --quiet -y $BUILDREPO//v1.0/lookout-backend-1.0-33.7709ec8.x86_64.rpm
+    install --quiet -y $BUILDREPO/v1.1/lookout-backend-1.0-42.5016b94.x86_64.rpm
 
 # vim:autoindent expandtab sw=4
