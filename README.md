@@ -6,10 +6,12 @@ APT service.  This structure allows for the recevier to be scaled to
 mutliple hosts with DNS round robin load balancing to the client devices,
 while providing a single interface for the API.
 
-The UDP receiver is very small and has been tested to 3.3M requests per
-second on a t2.micro instance over the localhost interface.  Most likely
-the bottleneck is going to be the external bandwidth through the AWS
-network.
+The UDP receiver is very small and has been tested with the provided
+client as is, and also with the sleep between messages reduced by
+two orders of magnitude.  The test was run on a t2.micro instance
+over the localhost interface.  Given it started at 33K/sec according
+to the doc, that should have been 3.3N/sec, but I did not observe
+the client providing that level of load.
 
 The communication between the receiver and the REST API is a tree of
 files in the filesystem.  There is a command line tool that given a
