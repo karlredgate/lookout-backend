@@ -67,4 +67,9 @@ data.
 The receiver hosts could be in an autoscale group to allow then to
 grow dynamically.
 
+## References
+
+The UDP code in this is picked up from my `sumner-tunnel` repo, which is a
+very simple TAP/UDP over IPv4/IPv6 ethernet tunnel.  (Also on github)
+
 <!-- vim: set autoindent expandtab sw=4: -->
