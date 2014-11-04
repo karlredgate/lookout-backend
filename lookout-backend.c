@@ -65,8 +65,6 @@ write_count( char *sha, long count ) {
  */
 static void
 idle() {
-    dbgprintf( "idle\n" );
-
     glob_t g;
     int error = glob( "events/*", GLOB_NOSORT, NULL, &g );
     if ( error != 0 ) {
@@ -156,12 +154,18 @@ process( int in ) {
     ENTRY *e = hsearch( entry, ENTER );
 
     if ( e != NULL ) {
+        if ( e->key == entry.key ) {
+            e->key = strdup( e->key );
+        }
+
         if ( e->data == NULL ) {
             e->data = calloc( 1, sizeof(struct message_stats) );
         }
         struct message_stats *stats = (struct message_stats *)( e->data );
         stats->messages += 1;
     }
+
+    lookout__backend_coding_questions__q1__ip_event__free_unpacked( message, NULL );
 
     return octets;
 }
@@ -193,7 +197,6 @@ loop( int sock ) {
 
         if ( FD_ISSET(sock, &fds) ) {
             ssize_t octets = process( sock );
-            if ( debug ) printf( "sock->tap %zd octets\n", octets );
         }
     }
 }
