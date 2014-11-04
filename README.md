@@ -36,7 +36,12 @@ from the console or from the command line:
 https://raw.githubusercontent.com/karlredgate/build-server/master/cloud-init
 ```
 
+The backend server can also be installed using a `cloud-init` from the
+backend repo:
 
+```
+https://raw.githubusercontent.com/karlredgate/lookout-backend/master/cloud-init
+```
 
 ## Testing
 
