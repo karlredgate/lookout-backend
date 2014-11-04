@@ -113,19 +113,25 @@ transmit( int sock ) {
 static void
 loop( int sock ) {
     struct timespec delay;
-    delay.tv_sec = 1;
 
     struct timeval timeout;
     fd_set fds;
 
-    int limit = random() % 10000000;
+    int limit = random() % 1000000;
     int i;
 
-    for ( i = 0 ; i < limit ; limit++ ) {
+    printf( "About to send %d messages\n", limit );
+    for ( i = 0 ; i < limit ; ++i ) {
+        if ( (i % 10000) == 0 ) {
+            fputc( '.', stdout );
+            fflush( stdout );
+        }
+        delay.tv_sec = 0;
         delay.tv_nsec = random() % 1000;
         nanosleep( &delay, NULL );
         transmit( sock );
     }
+    printf( "\nDone\n" );
 }
 
 /*
@@ -219,7 +225,7 @@ main( int argc, char **argv ) {
     if ( isatty(0) )  debug = 1;
     srandom( time(NULL) );
 
-    int 0;
+    int i;
     for ( i = 0 ; i < 3 ; ++i ) {
         good_sha[i] = argv[ i + 3 ];
     }
