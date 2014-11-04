@@ -45,6 +45,18 @@ https://raw.githubusercontent.com/karlredgate/lookout-backend/master/cloud-init
 
 ## Testing
 
+The `test-client` tests sending 30% randomly corrupted packets to
+the server.
+
+Also, use the provided ruby client but decrease the delay between
+messages until the drop rate is determined.  In this case we get
+to at least 3.3M messages per second over the looback interface.
+Removing the sleep entirely caused a 13% drop rate.
+
+Run the server under `valgrind --leak-yes` to detect memory leaks.
+There are a couple leaks that are reported, but they are data
+structures whose lifetime is the lifetime of the process.
+
 ## Scaling
 
 To scale this service add an inotify watcher for the data stored on each
