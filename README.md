@@ -74,4 +74,16 @@ grow dynamically.
 The UDP code in this is picked up from my `sumner-tunnel` repo, which is a
 very simple TAP/UDP over IPv4/IPv6 ethernet tunnel.  (Also on github)
 
+<!--
+Web sites referenced
+https://github.com/lookout/backend-coding-questions
+-- protobuf
+https://code.google.com/p/protobuf-c/wiki/Examples
+https://github.com/protobuf-c/protobuf-c
+-- S3 libraries
+https://github.com/qoobaa/s3
+https://github.com/marcel/aws-s3
+https://github.com/bji/libs3
+ -->
+
 <!-- vim: set autoindent expandtab sw=4: -->
