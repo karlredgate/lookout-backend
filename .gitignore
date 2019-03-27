@@ -6,4 +6,5 @@ send-event
 lookout.pb-c.h
 lookout.pb-c.c
 /lookout-backend
+/test-client
 /rpm
