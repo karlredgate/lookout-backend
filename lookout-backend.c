@@ -55,7 +55,7 @@ write_count( char *sha, long count ) {
     FILE *f = fopen( tmppath, "w" );
     /* if the file cannot be opened, treat it as a dropped message */
     if ( f == NULL ) return;
-    fprintf( f, "%d", count );
+    fprintf( f, "%ld", count );
     fclose( f );
 
     rename( tmppath, path );
@@ -238,7 +238,7 @@ parse( char *address, char *service ) {
 
 /*
  */
-static int
+static void
 tune_socket( int sock ) {
     int oldbuf = 0;
     socklen_t optlen = sizeof(oldbuf);
@@ -309,7 +309,4 @@ main( int argc, char **argv ) {
     return 0;
 }
 
-/*
- * vim:autoindent
- * vim:expandtab
- */
+/* vim: set autoindent expandtab sw=4 : */
