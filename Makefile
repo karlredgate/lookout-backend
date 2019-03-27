@@ -3,6 +3,9 @@ PWD := $(shell pwd)
 ARCH := $(shell arch)
 PACKAGE = lookout-backend
 
+INCS=-I/opt/local/include
+CFLAGS += $(INCS)
+
 default: rpm
 
 rpm: build
@@ -21,23 +24,23 @@ update: rpm
 
 CLEANS += test-client
 test-client: lookout.pb-c.o test-client.o
-	cc -o test-client $^ -lprotobuf-c
+	cc $(INCS) -o test-client $^ -L/opt/local/lib -lprotobuf-c
 
 CLEANS += lookout-backend
 lookout-backend: lookout.pb-c.o lookout-backend.o
-	cc -o lookout-backend $^ -lprotobuf-c
+	cc $(INCS) -o lookout-backend $^ -L/opt/local/lib -lprotobuf-c
 
 CLEANS += send-event
 send-event: lookout.pb-c.o send-event.o
-	cc -o send-event $^ -lprotobuf-c
+	cc $(INCS) -o send-event $^ -lprotobuf-c
 
 CLEANS += decode
 decode: lookout.pb-c.o decode.o
-	cc -o decode $^ -lprotobuf-c
+	cc $(INCS) -o decode $^ -lprotobuf-c
 
 CLEANS += encode
 encode: lookout.pb-c.o encode.o
-	cc -o encode $^ -lprotobuf-c
+	cc $(INCS) -o encode $^ -lprotobuf-c
 
 lookout.pb-c.o: lookout.pb-c.h
 

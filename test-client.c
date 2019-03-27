@@ -42,7 +42,8 @@ static ssize_t
 transmit_good( int out ) {
     Lookout__BackendCodingQuestions__Q1__IpEvent message = LOOKOUT__BACKEND_CODING_QUESTIONS__Q1__IP_EVENT__INIT;
 
-    char *buffer;
+    // char *buffer;
+    uint8_t *buffer;
     unsigned int length;
 
     message.app_sha256 = good_sha[ random() % 3 ];
@@ -64,7 +65,8 @@ static ssize_t
 transmit_corrupted( int out ) {
     Lookout__BackendCodingQuestions__Q1__IpEvent message = LOOKOUT__BACKEND_CODING_QUESTIONS__Q1__IP_EVENT__INIT;
 
-    char *buffer;
+    // char *buffer;
+    uint8_t *buffer;
     unsigned int length;
 
     message.app_sha256 = good_sha[ random() % 3 ];
@@ -97,15 +99,12 @@ transmit( int sock ) {
     case 2:
     case 4:
     case 5:
-    case 6:
-        transmit_good( sock );
-        break;
+    case 6: return transmit_good( sock );
     case 7:
     case 8:
-    case 9:
-        transmit_corrupted( sock );
-        break;
+    case 9: return transmit_corrupted( sock );
     }
+    return 0;
 }
 
 /*
@@ -171,7 +170,7 @@ parse( char *address, char *service ) {
 
 /*
  */
-static int
+static void
 tune_socket( int sock ) {
     int oldbuf = 0;
     socklen_t optlen = sizeof(oldbuf);
